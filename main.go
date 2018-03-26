@@ -32,7 +32,7 @@ func init() {
 }
 
 func main() {
-	e, err := newFirstExporter(*consulHost, *consulServices, *serviceTags)
+	e, err := newExporter(*consulHost, *consulServices, *serviceTags)
 	if err != nil {
 		panic(err)
 	}
@@ -53,7 +53,7 @@ func main() {
 	log.Fatal(http.ListenAndServe(*listenAddress, nil))
 }
 
-type FirstExporter struct {
+type Exporter struct {
 	client   *consul_api.Client
 	addr     string
 	services map[string]bool
@@ -64,11 +64,11 @@ type FirstExporter struct {
 	//exporter_hash map[string]*ServiceExporter
 }
 
-func (e *FirstExporter) Describe(ch chan<- *prometheus.Desc) {
+func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.consul_desc
 	ch <- e.up_desc
 }
-func (e *FirstExporter) Collect(ch chan<- prometheus.Metric) {
+func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	srvs_map := e.services
 	if len(e.services) == 0 {
 		srvnames, _, err := e.client.Catalog().Services(&consul_api.QueryOptions{})
@@ -168,7 +168,7 @@ func (e *FirstExporter) Collect(ch chan<- prometheus.Metric) {
 	}
 
 }
-func newFirstExporter(addr string, services []string, tags []string) (*FirstExporter, error) {
+func newExporter(addr string, services []string, tags []string) (*Exporter, error) {
 	client, err := newConsulClient(addr)
 	if err != nil {
 		return nil, err
@@ -183,7 +183,7 @@ func newFirstExporter(addr string, services []string, tags []string) (*FirstExpo
 	all_tags = append(all_tags, "dc", "node_addr", "name", "id", "addr", "port")
 	all_tags = append(all_tags, tags...)
 
-	return &FirstExporter{
+	return &Exporter{
 		client, addr,
 		srvs_map,
 		tags,
@@ -215,28 +215,4 @@ func newConsulClient(uri string) (*consul_api.Client, error) {
 	config.Scheme = u.Scheme
 
 	return consul_api.NewClient(config)
-}
-
-type ServiceExporter struct {
-	Desc           *prometheus.Desc
-	variableLabels []string
-	metric_chan    chan prometheus.Metric
-}
-
-func (se *ServiceExporter) Describe(ch chan<- *prometheus.Desc) {
-	ch <- se.Desc
-}
-func (se *ServiceExporter) Collect(ch chan<- prometheus.Metric) {
-
-}
-func NewServiceExporter(tags []string) *ServiceExporter {
-	return &ServiceExporter{
-		Desc: prometheus.NewDesc(
-			prometheus.BuildFQName("dial", "", strings.Join(tags, "_")),
-			"Dial check service in consul for tag: "+strings.Join(tags, ","),
-			tags, nil,
-		),
-		variableLabels: tags,
-		metric_chan:    make(chan prometheus.Metric),
-	}
 }
