@@ -69,23 +69,32 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.up_desc
 }
 func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
+	// consul state
+	_, err := e.client.Status().Leader()
+	if err != nil {
+		ch <- prometheus.MustNewConstMetric(
+			e.consul_desc, prometheus.GaugeValue, 0, e.addr,
+		)
+	} else {
+		ch <- prometheus.MustNewConstMetric(
+			e.consul_desc, prometheus.GaugeValue, 1, e.addr,
+		)
+	}
+
+	// consul service
 	srvs_map := e.services
 	if len(e.services) == 0 {
 		srvnames, _, err := e.client.Catalog().Services(&consul_api.QueryOptions{})
 		if err != nil {
-			ch <- prometheus.MustNewConstMetric(
-				e.consul_desc, prometheus.GaugeValue, 0, e.addr,
-			)
-		} else {
-			ch <- prometheus.MustNewConstMetric(
-				e.consul_desc, prometheus.GaugeValue, 1, e.addr,
-			)
+			log.Errorf("catalog service failed: %v", err)
+			return
 		}
 		for srv_name, _ := range srvnames {
 			srvs_map[srv_name] = true
 		}
 	}
 
+	// consul service state
 	for srv_name, _ := range srvs_map {
 		// health service
 		srvs, _, err := e.client.Health().Service(srv_name, "", false, new(consul_api.QueryOptions))
@@ -194,7 +203,7 @@ func newExporter(addr string, services []string, tags []string) (*Exporter, erro
 		),
 		prometheus.NewDesc(
 			prometheus.BuildFQName("dial", "", "up"),
-			"consul state",
+			"consul service state",
 			all_tags, nil,
 		),
 		//make(map[string]*ServiceExporter),
