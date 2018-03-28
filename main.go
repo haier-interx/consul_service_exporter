@@ -135,7 +135,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 				label_values[label_name_value[0]] = label_name_value[1]
 			}
 
-			ignore := false
+			//ignore := false
 			values := make([]string, 0, len(label_values)+6)
 			values = append(values,
 				srv_obj.Node.Datacenter, srv_obj.Node.Address,
@@ -144,15 +144,15 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 			)
 			for _, tag := range e.tags {
 				if label_values[tag] == "" {
-					log.Warnf("the %s of service(%s) %s is null, ignore it!", tag, srv_name, srv.ID)
-					ignore = true
-					break
+					log.Warnf("the %s of service(%s) %s is null, ignore it ???", tag, srv_name, srv.ID)
+					//ignore = true
+					//break
 				}
 				values = append(values, label_values[tag])
 			}
-			if ignore {
-				continue
-			}
+			//if ignore {
+			//	continue
+			//}
 			//log.Infof("%+v", values)
 
 			// check
