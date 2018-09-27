@@ -19,6 +19,7 @@ var (
 	consulHost     *string
 	consulServices *[]string
 	serviceTags    *[]string
+	datacenter     *string
 )
 
 func init() {
@@ -27,6 +28,7 @@ func init() {
 	consulHost = kingpin.Flag("consul.server", "HTTP API address of a Consul server or agent. (prefix with https:// to connect over HTTPS)").Default("http://localhost:8500").String()
 	consulServices = kingpin.Flag("consul.service", "Consule service list").Strings()
 	serviceTags = kingpin.Flag("consul.tag", "Consule service tag").Strings()
+	datacenter = kingpin.Flag("consul.dc", "Consule datacenter").String()
 
 	kingpin.Parse()
 }
@@ -84,7 +86,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	// consul service
 	srvs_map := e.services
 	if len(e.services) == 0 {
-		srvnames, _, err := e.client.Catalog().Services(&consul_api.QueryOptions{})
+		srvnames, _, err := e.client.Catalog().Services(newQueryOption())
 		if err != nil {
 			log.Errorf("catalog service failed: %v", err)
 			return
@@ -97,7 +99,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	// consul service state
 	for srv_name, _ := range srvs_map {
 		// health service
-		srvs, _, err := e.client.Health().Service(srv_name, "", false, new(consul_api.QueryOptions))
+		srvs, _, err := e.client.Health().Service(srv_name, "", false, newQueryOption())
 		if err != nil {
 			log.Errorf("get health services %s failed: %v", srv_name, err)
 			continue
@@ -224,4 +226,13 @@ func newConsulClient(uri string) (*consul_api.Client, error) {
 	config.Scheme = u.Scheme
 
 	return consul_api.NewClient(config)
+}
+
+func newQueryOption() *consul_api.QueryOptions {
+	qo := &consul_api.QueryOptions{}
+	if *datacenter != "" {
+		qo.Datacenter = *datacenter
+	}
+
+	return qo
 }
